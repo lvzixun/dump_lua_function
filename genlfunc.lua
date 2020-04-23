@@ -1,24 +1,4 @@
 local parser = require "parser"
-local print_r = require "print_r"
-
-local source = [[
-
-function aa()
-    return 33
-end
-
-function ee.cc:ff()
-    return 3
-end
-
-local function foo()
-    return 4
-end
-
-function foo.cc.ee ()
-    return 4
-end
-]]
 
 local function append(ret, name, location, end_location)
     ret[#ret+1] = {
@@ -27,9 +7,22 @@ local function append(ret, name, location, end_location)
     }
 end
 
+local function dump_local_function(root, ret)
+    local left = root[1]
+    local right = root[2]
+    if right then
+        for i,v in ipairs(right) do
+            if v.tag == "Function" then
+                local name = left[i] and left[i][1]
+                if name then
+                    append(ret, name, v.location, v.end_location)
+                end
+            end
+        end
+    end
+end
 
-local function dump_local_function (root, ret)
-    assert(root.tag == "Localrec")
+local function dump_localrec_function (root, ret)
     local location = root.location
     local end_location = root[2].end_location
     local name = root[1][1]
@@ -37,8 +30,6 @@ local function dump_local_function (root, ret)
 end
 
 local function dump_index(root)
-    -- print("------------")
-    -- print_r(root)
     if root.tag == "Id" then
         return root[1]
     end
@@ -57,10 +48,6 @@ end
 
 
 local function dump_set_function(root, ret)
-    assert(root.tag == "Set")
-    assert(root.first_token == "function")
-    -- print("$$$$$$$$$")
-    -- print_r(root)
     local name = dump_index(root[1][1])
     local location = root[2][1].location
     local end_location = root[2][1].end_location
@@ -71,32 +58,29 @@ end
 -- 只遍历最外层的function
 local function dump_block(root, ret)
     ret = ret or {}
-    assert(root.tag == "Block")
+    local root_tag = root.tag
     for i,v in ipairs(root) do
-        local tag = v.tag
-        if tag == "Set" and v.first_token == "function" then
-            dump_set_function(v, ret)
-        elseif tag == "Localrec" then
-            dump_local_function(v, ret)
+        if root_tag == "Block" then
+            local tag = v.tag
+            if tag == "Set" and v.first_token == "function" then
+                dump_set_function(v, ret)
+            elseif tag == "Localrec" then
+                dump_localrec_function(v, ret)
+            elseif tag == "Local" then
+                dump_local_function(v, ret)
+            end
         end
+        dump_block(v, ret)
     end
     return ret
 end
 
-local function read_file(path)
-    local fd =io.open(path, "r")
-    assert(fd, path)
-    local s = fd:read("a")
-    fd:close()
-    return s
+
+local function do_parser(source)
+    local ast = parser(source)
+    local info = dump_block(ast, {})
+    return info
 end
 
-local path = ...
-local source = read_file(path)
 
-local ast = parser(source)
-local info = dump_block(ast, {})
-
-
-print("#############")
-print_r(info)
+return do_parser
