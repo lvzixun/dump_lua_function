@@ -59,6 +59,7 @@ end
 
 local function read_file(path)
     local fd =io.open(path, "r")
+    -- print(path)
     assert(fd, path)
     local s = fd:read("a")
     fd:close()
@@ -67,6 +68,7 @@ end
 
 local function write_file(source, path)
     local fd = io.open(path, "w")
+    fd:write("return ")
     fd:write(source)
     fd:close()
 end
